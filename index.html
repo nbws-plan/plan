@@ -1128,6 +1128,9 @@ footer li a:hover{color:var(--gold-400);padding-left:6px}
 .aw-box p{color:#fff;font-family:"Prompt";text-align:center;margin-top:14px}
 .aw-box .ap-x{top:-18px;right:-18px;background:var(--gold-500);color:var(--navy-950)}
 @media (max-width:760px){#awGrid{grid-template-columns:1fr}.aw-box .ap-x{right:0;top:-54px}}
+.pcode{display:inline-block;font-family:"Prompt";font-size:12.5px;font-weight:700;color:var(--navy-700);background:var(--navy-100);padding:1px 8px;border-radius:6px;margin-right:4px;vertical-align:2px}
+.pmore{justify-self:center;margin-top:6px}
+#projList{max-height:none}
 /* ---------- Responsive ---------- */
 @media (max-width:1180px){
   .nav a{padding:8px 8px;font-size:14px}
@@ -1951,7 +1954,8 @@ const SCHOOL_SITE = 'https://sites.google.com/a/nbws.ac.th/nbws/%E0%B8%AB%E0%B8%
 
 /* ปฏิทินงาน: date = วันที่ (ค.ศ. YYYY-MM-DD), t = ชื่องาน, d = รายละเอียด, ic = ไอคอน (ข้อมูลตัวอย่าง ปีงบประมาณ 2570) */
 const CALENDAR_FY = '2570';
-const CALENDAR = [
+let CALENDAR = [];  /* ดึงจาก Google Sheet แท็บ "ปฏิทินงาน" อัตโนมัติ — ข้อมูลด้านล่างใช้สำรองกรณีโหลดไม่ได้ */
+const CALENDAR_SAMPLE = [
   {date:'2026-10-01', t:'เริ่มปีงบประมาณ 2570', d:'เริ่มใช้แผนปฏิบัติการและงบประมาณปีใหม่', ic:'flag'},
   {date:'2026-10-20', t:'ส่งแบบเสนอโครงการ', d:'ทุกกลุ่มสาระ/งาน ส่งผ่านระบบแผนงานและงบประมาณ', ic:'clip'},
   {date:'2026-11-10', t:'ประชุมพิจารณาแผนปฏิบัติการ', d:'คณะกรรมการกลั่นกรองและจัดสรรงบประมาณ', ic:'users'},
@@ -1970,12 +1974,14 @@ const ITA_CATS = [
 ];
 const DOCS_FOLDER_LINK = 'https://drive.google.com/drive/folders/1pXpmDLy6YPa1s_z4NuuclXnNjlKKvdBC';
 
-/* คู่มือการใช้งาน: ใส่ลิงก์ไฟล์ PDF ใน url (ว่าง = แสดง "เร็ว ๆ นี้") */
+/* คู่มือการใช้งาน: ดึงไฟล์อัตโนมัติจากโฟลเดอร์ย่อย "คู่มือการใช้งาน" ในโฟลเดอร์ "เอกสาร" บน Drive
+   ไฟล์ที่ชื่อมีคำใน key จะไปอยู่การ์ดนั้น (เช่น "คู่มือระบบพัสดุ.pdf" → การ์ดระบบพัสดุ) ไฟล์อื่นจะเพิ่มเป็นการ์ดใหม่ */
+const MANUAL_FOLDER = 'คู่มือการใช้งาน';
 const MANUALS = [
-  {t:'คู่มือระบบแผนงานและงบประมาณ', d:'เสนอโครงการ ติดตามสถานะ รายงานผล', ic:'chart', url:''},
-  {t:'คู่มือระบบพัสดุ', d:'ขอซื้อขอจ้าง ตรวจรับ ทะเบียนครุภัณฑ์', ic:'box', url:''},
-  {t:'คู่มือระบบประกันคุณภาพ', d:'บันทึกตัวชี้วัด จัดทำ SAR', ic:'award', url:''},
-  {t:'คู่มือการสมัครทุนการศึกษา', d:'สำหรับนักเรียนและผู้ปกครอง', ic:'grad', url:''}
+  {t:'คู่มือระบบแผนงานและงบประมาณ', d:'เสนอโครงการ ติดตามสถานะ รายงานผล', ic:'chart', key:['แผนงาน','งบประมาณ']},
+  {t:'คู่มือระบบพัสดุ', d:'ขอซื้อขอจ้าง ตรวจรับ ทะเบียนครุภัณฑ์', ic:'box', key:['พัสดุ']},
+  {t:'คู่มือระบบประกันคุณภาพ', d:'บันทึกตัวชี้วัด จัดทำ SAR', ic:'award', key:['ประกันคุณภาพ','SAR']},
+  {t:'คู่มือการสมัครทุนการศึกษา', d:'สำหรับนักเรียนและผู้ปกครอง', ic:'grad', key:['ทุน']}
 ];
 
 /* ผลงานและรางวัล (ข้อมูลตัวอย่าง — แทนที่ด้วยผลงานจริง) y = ปี, by = หน่วยงานที่มอบ, lv = ระดับ */
@@ -2244,31 +2250,47 @@ const STATS = [
   })();
 
   // =================== v15: ปฏิทิน / แดชบอร์ด / ITA / คู่มือ / รางวัล / FAQ ===================
-  // ---------- ปฏิทินงาน ----------
+  // ---------- ปฏิทินงาน (โหลดจาก Google Sheet) ----------
   (function(){
     const tr=$('#calTrack'); if(!tr) return;
-    $('#calFY').textContent='ปีงบประมาณ '+CALENDAR_FY;
-    const t0=new Date(); t0.setHours(0,0,0,0);
-    const items=CALENDAR.map(e=>({...e,dt:new Date(e.date+'T00:00:00')})).sort((a,b)=>a.dt-b.dt);
-    const nextIdx=items.findIndex(e=>e.dt>=t0);
-    tr.insertAdjacentHTML('beforeend',items.map((e,i)=>{
-      const left=Math.round((e.dt-t0)/864e5), past=left<0, next=i===nextIdx;
-      const m=e.dt.toLocaleDateString('th-TH',{month:'short'}), d=e.dt.getDate(), y=e.dt.getFullYear()+543;
-      return `<div class="cal-item ${past?'past':''} ${next?'next':''}" style="--i:${i}">
-        <div class="cal-dot">${past?ic('check'):ic(e.ic||'cal')}</div>
-        <div class="cal-card">
-          <div class="cal-date"><b>${d}</b><span>${m} ${String(y).slice(2)}</span></div>
-          <h4>${esc(e.t)}</h4><p>${esc(e.d||'')}</p>
-          <span class="cal-tag">${past?'ผ่านไปแล้ว':left===0?'วันนี้!':next?'อีก '+left+' วัน':'อีก '+left+' วัน'}</span>
-        </div></div>`;}).join(''));
     const fill=$('#calFill');
-    const pct=nextIdx<0?100:nextIdx===0?0:(nextIdx-.5)/(items.length-1)*100;
-    const io=new IntersectionObserver(es=>es.forEach(en=>{ if(en.isIntersecting){ fill.style.width=pct+'%'; io.disconnect();
-      const nx=tr.querySelector('.cal-item.next'); if(nx) setTimeout(()=>tr.scrollTo({left:Math.max(0,nx.offsetLeft-tr.clientWidth/2+nx.offsetWidth/2),behavior:'smooth'}),700); }}),{threshold:.3});
-    io.observe(tr);
     const step=()=>(tr.querySelector('.cal-item')?.offsetWidth||260)+18;
     $('#calPrev').onclick=()=>tr.scrollBy({left:-step()*2,behavior:'smooth'});
     $('#calNext').onclick=()=>tr.scrollBy({left:step()*2,behavior:'smooth'});
+    function render(list){
+      tr.querySelectorAll('.cal-item,.cal-empty').forEach(x=>x.remove()); fill.style.width='0';
+      const t0=new Date(); t0.setHours(0,0,0,0);
+      const items=list.map(e=>({...e,dt:new Date(e.date+'T00:00:00')})).filter(e=>!isNaN(e.dt)).sort((a,b)=>a.dt-b.dt);
+      if(!items.length){ $('#calFY').textContent=''; tr.insertAdjacentHTML('beforeend','<div class="cal-empty empty" style="flex:1">ยังไม่มีกำหนดการ</div>'); return; }
+      // ปีงบประมาณ: งานแรกที่ยังไม่ผ่าน (ต.ค.–ก.ย.)
+      const ref=items.find(e=>e.dt>=t0)||items[items.length-1];
+      const fy=ref.dt.getFullYear()+543+(ref.dt.getMonth()>=9?1:0);
+      $('#calFY').textContent='ปีงบประมาณ '+fy;
+      const nextIdx=items.findIndex(e=>e.dt>=t0);
+      tr.insertAdjacentHTML('beforeend',items.map((e,i)=>{
+        const left=Math.round((e.dt-t0)/864e5), past=left<0, next=i===nextIdx;
+        const m=e.dt.toLocaleDateString('th-TH',{month:'short'}), d=e.dt.getDate(), y=e.dt.getFullYear()+543;
+        return `<div class="cal-item ${past?'past':''} ${next?'next':''}" style="--i:${i}">
+          <div class="cal-dot">${past?ic('check'):ic(e.ic||'cal')}</div>
+          <div class="cal-card">
+            <div class="cal-date"><b>${d}</b><span>${m} ${String(y).slice(2)}</span></div>
+            <h4>${esc(e.t)}</h4><p>${esc(e.d||'')}</p>
+            <span class="cal-tag">${past?'ผ่านไปแล้ว':left===0?'วันนี้!':'อีก '+left+' วัน'}</span>
+          </div></div>`;}).join(''));
+      const pct=nextIdx<0?100:nextIdx===0?0:(nextIdx-.5)/(items.length-1)*100;
+      const go=()=>{ fill.style.width=pct+'%'; const nx=tr.querySelector('.cal-item.next');
+        if(nx) setTimeout(()=>tr.scrollTo({left:Math.max(0,nx.offsetLeft-tr.clientWidth/2+nx.offsetWidth/2),behavior:'smooth'}),700); };
+      if(tr.dataset.seen) go(); else new IntersectionObserver((es,o)=>es.forEach(en=>{ if(en.isIntersecting){ tr.dataset.seen=1; go(); o.disconnect(); }}),{threshold:.3}).observe(tr);
+    }
+    if(!SCHOLARSHIP_API){ render(CALENDAR_SAMPLE); return; }
+    tr.insertAdjacentHTML('beforeend','<div class="cal-empty empty" style="flex:1">กำลังโหลดกำหนดการ…</div>');
+    const cb='__calCb'+Date.now(), sc=document.createElement('script');
+    const t=setTimeout(()=>{ delete window[cb]; sc.remove(); render(CALENDAR_SAMPLE); },15000);
+    window[cb]=res=>{ clearTimeout(t); delete window[cb]; sc.remove();
+      if(res&&res.ok&&Array.isArray(res.calendar)){ CALENDAR=res.calendar; render(CALENDAR); } else render(CALENDAR_SAMPLE); };
+    sc.onerror=()=>{ clearTimeout(t); delete window[cb]; render(CALENDAR_SAMPLE); };
+    sc.src=SCHOLARSHIP_API+(SCHOLARSHIP_API.includes('?')?'&':'?')+'action=calendar&callback='+cb;
+    document.body.appendChild(sc);
   })();
 
   // ---------- แดชบอร์ดภาพรวมโครงการ (ข้อมูลจริงจากระบบงบประมาณ) ----------
@@ -2333,15 +2355,22 @@ const STATS = [
     setTimeout(()=>{ if(!window.ITA_DOCS){ window.ITA_DOCS=[]; window.renderITA(); } },16000);
   })();
 
-  // ---------- คู่มือ ----------
+  // ---------- คู่มือ (ดึงจากโฟลเดอร์ Drive "คู่มือการใช้งาน") ----------
   (function(){
-    if(!$('#manualGrid')) return;
-    $('#manualGrid').innerHTML=MANUALS.map((m,i)=>`
-      <${m.url?'a':'div'} class="man bounce reveal ${m.url?'':'soon'}" style="--d:${i*.08}s" ${m.url?`href="${esc(m.url)}" target="_blank" rel="noopener"`:''}>
-        <div class="man-doc"><span class="man-ic">${ic(m.ic)}</span><i class="man-pdf">PDF</i><i class="man-l1"></i><i class="man-l2"></i><i class="man-l3"></i></div>
-        <h3>${esc(m.t)}</h3><p>${esc(m.d)}</p>
-        <span class="more">${m.url?'ดาวน์โหลดคู่มือ '+ic('down'):'เร็ว ๆ นี้'}</span>
-      </${m.url?'a':'div'}>`).join('');
+    const g=$('#manualGrid'); if(!g) return;
+    window.renderManuals=()=>{
+      const files=(window.MANUAL_DOCS||[]).slice(), used=new Set();
+      const cards=MANUALS.map(m=>{ const f=files.find(x=>!used.has(x)&&m.key.some(k=>x.n.includes(k))); if(f) used.add(f); return {...m,file:f}; });
+      files.filter(f=>!used.has(f)).forEach(f=>cards.push({t:f.n,d:f.date?'อัปเดต '+thDate(f.date):'',ic:'book',file:f}));
+      g.innerHTML=cards.map((m,i)=>{ const u=m.file&&(m.file.view||m.file.url);
+        return `<${u?'a':'div'} class="man bounce reveal in ${u?'':'soon'}" style="--d:${(i%4)*.08}s" ${u?`href="${esc(u)}" target="_blank" rel="noopener"`:''}>
+          <div class="man-doc"><span class="man-ic">${ic(m.ic)}</span><i class="man-pdf">PDF</i><i class="man-l1"></i><i class="man-l2"></i><i class="man-l3"></i></div>
+          <h3>${esc(m.t)}</h3><p>${esc(m.d)}${m.file&&m.file.size?' · '+esc(m.file.size):''}</p>
+          <span class="more">${u?'เปิดคู่มือ '+ic('arrow'):'เร็ว ๆ นี้'}</span>
+        </${u?'a':'div'}>`;}).join('');
+      bindTilt();
+    };
+    window.renderManuals();
   })();
 
   // ---------- ผลงานและรางวัล ----------
@@ -2390,30 +2419,52 @@ const STATS = [
     $('#tkTrack').innerHTML=tk?tk+tk:'<a href="#news"><i></i>ติดตามข่าวสารจากกลุ่มบริหารแผนงานและงบประมาณ</a>';
   }
 
-  // ---------- projects ----------
-  const ST={ok:'อนุมัติ',wait:'รอพิจารณา',fix:'ปรับแก้'};
-  let pFilter='all', pQuery='';
-  const okSum=PROJECTS.filter(p=>p.s==='ok');
-  $('#projSummary').innerHTML=`
-    <div class="sum"><b data-count="${okSum.length}">0</b><span>โครงการที่อนุมัติ</span></div>
-    <div class="sum"><b data-count="${PROJECTS.filter(p=>p.s==='wait').length}">0</b><span>รอพิจารณา</span></div>
-    <div class="sum"><b data-count="${PROJECTS.filter(p=>p.s==='fix').length}">0</b><span>ต้องปรับแก้</span></div>`;
-  $('#projChips').innerHTML=[['all','ทั้งหมด'],['ok','อนุมัติ'],['wait','รอพิจารณา'],['fix','ปรับแก้']].map(([k,l])=>
-    `<button class="chip ${k==='all'?'on':''}" data-k="${k}">${l}<em>${k==='all'?PROJECTS.length:PROJECTS.filter(p=>p.s===k).length}</em></button>`).join('');
+  // ---------- projects (ดึงจากระบบงบประมาณ — ไม่มีจำนวนเงิน) ----------
+  // สถานะจากระบบ → กลุ่มบนเว็บ
+  const stMap=st=>/เสร็จ/.test(st)?'done':/อนุมัติแล้ว|กำลังดำเนิน/.test(st)?'ok':/ไม่อนุมัติ/.test(st)?'rej':/แก้ไข|ปรับแก้/.test(st)?'fix':/รอ/.test(st)?'wait':'wait';
+  const PILL={ok:'ok',done:'ok',wait:'wait',fix:'fix',rej:'fix'};
+  let PLIST=PROJECTS.map(p=>({n:p.n,g:p.g,by:p.by,st:{ok:'อนุมัติแล้ว',wait:'รอพิจารณา',fix:'ต้องแก้ไข'}[p.s],k:p.s,code:''}));
+  let pFilter='all', pQuery='', pShow=20;
+  const GROUPS=[['all','ทั้งหมด',()=>true],['ok','อนุมัติ/ดำเนินการ',p=>p.k==='ok'||p.k==='done'],['wait','รอพิจารณา',p=>p.k==='wait'],['fix','ต้องแก้ไข/ไม่อนุมัติ',p=>p.k==='fix'||p.k==='rej']];
+  function projHeader(){
+    const c=k=>PLIST.filter(GROUPS.find(g=>g[0]===k)[2]).length;
+    $('#projSummary').innerHTML=`
+      <div class="sum"><b>${c('ok')}</b><span>อนุมัติ/ดำเนินการ</span></div>
+      <div class="sum"><b>${c('wait')}</b><span>รอพิจารณา</span></div>
+      <div class="sum"><b>${c('fix')}</b><span>ต้องแก้ไข/ไม่อนุมัติ</span></div>`;
+    $('#projChips').innerHTML=GROUPS.map(([k,l])=>`<button class="chip ${k===pFilter?'on':''}" data-k="${k}">${l}<em>${c(k)}</em></button>`).join('');
+  }
   function renderProjects(){
-    const q=pQuery.trim().toLowerCase();
-    const rows=PROJECTS.filter(p=>(pFilter==='all'||p.s===pFilter)&&(!q||(p.n+p.g+p.by).toLowerCase().includes(q)));
-    $('#projList').innerHTML=rows.length?rows.map(p=>`
+    const q=pQuery.trim().toLowerCase(), f=GROUPS.find(g=>g[0]===pFilter)[2];
+    const rows=PLIST.filter(p=>f(p)&&(!q||(p.n+' '+p.g+' '+p.by+' '+p.code).toLowerCase().includes(q)));
+    $('#projList').innerHTML=rows.length?rows.slice(0,pShow).map(p=>`
       <div class="prow bounce-sm">
         <div class="pic">${ic('flag')}</div>
-        <div><h4>${esc(p.n)}</h4><div class="meta"><span>${ic('layers')}${esc(p.g)}</span><span>${ic('user')}${esc(p.by)}</span></div></div>
-        <span class="pill ${p.s}">${ST[p.s]}</span>
-      </div>`).join(''):'<div class="empty">ไม่พบโครงการที่ค้นหา</div>';
+        <div><h4>${p.code?`<span class="pcode">${esc(p.code)}</span> `:''}${esc(p.n)}</h4><div class="meta">${p.g?`<span>${ic('layers')}${esc(p.g)}</span>`:''}${p.by?`<span>${ic('user')}${esc(p.by)}</span>`:''}</div></div>
+        <span class="pill ${PILL[p.k]}">${esc(p.st||'-')}</span>
+      </div>`).join('')+(rows.length>pShow?`<button class="btn btn-outline btn-sm pmore" type="button">แสดงเพิ่มอีก ${Math.min(20,rows.length-pShow)} รายการ (จาก ${rows.length})</button>`:'')
+      :'<div class="empty">ไม่พบโครงการที่ค้นหา</div>';
   }
+  $('#projList').addEventListener('click',e=>{ if(e.target.closest('.pmore')){ pShow+=20; renderProjects(); }});
   $('#projChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;
-    $$('#projChips .chip').forEach(c=>c.classList.toggle('on',c===b));pFilter=b.dataset.k;renderProjects();});
-  $('#projSearch').addEventListener('input',e=>{pQuery=e.target.value;renderProjects();});
-  renderProjects();
+    $$('#projChips .chip').forEach(c=>c.classList.toggle('on',c===b));pFilter=b.dataset.k;pShow=20;renderProjects();});
+  $('#projSearch').addEventListener('input',e=>{pQuery=e.target.value;pShow=20;renderProjects();});
+  projHeader(); $('#projList').innerHTML='<div class="empty">กำลังโหลดรายการโครงการจากระบบงบประมาณ…</div>';
+  (function loadProjects(){
+    const done=()=>{ projHeader(); renderProjects(); };
+    if(!SCHOLARSHIP_API){ done(); return; }
+    const cb='__prCb'+Date.now(), sc=document.createElement('script');
+    const t=setTimeout(()=>{ delete window[cb]; sc.remove(); done(); },15000);
+    window[cb]=res=>{ clearTimeout(t); delete window[cb]; sc.remove();
+      if(res&&res.ok&&Array.isArray(res.projects)){
+        const ord={wait:0,fix:1,ok:2,done:3,rej:4};
+        PLIST=res.projects.map(p=>({...p,k:stMap(p.st)})).sort((a,b)=>(ord[a.k]-ord[b.k])||String(b.date).localeCompare(String(a.date)));
+      }
+      done(); };
+    sc.onerror=()=>{ clearTimeout(t); delete window[cb]; done(); };
+    sc.src=SCHOLARSHIP_API+(SCHOLARSHIP_API.includes('?')?'&':'?')+'action=projects&callback='+cb;
+    document.body.appendChild(sc);
+  })();
 
   // ---------- scholarships (โหลดจาก Google Sheet) ----------
   const today=new Date();today.setHours(0,0,0,0);
@@ -2555,7 +2606,8 @@ const STATS = [
     if(!res||!res.ok||!Array.isArray(res.docs)){ docsFailed(); return; }
     const itaNames=ITA_CATS.map(c=>c.name);
     window.ITA_DOCS=res.docs.filter(d=>itaNames.includes(d.c));
-    DOCS=res.docs.filter(d=>!itaNames.includes(d.c)); buildChips(); renderDocs(); window.renderITA&&window.renderITA();
+    window.MANUAL_DOCS=res.docs.filter(d=>d.c===MANUAL_FOLDER); window.renderManuals&&window.renderManuals();
+    DOCS=res.docs.filter(d=>!itaNames.includes(d.c)&&d.c!==MANUAL_FOLDER); buildChips(); renderDocs(); window.renderITA&&window.renderITA();
     const st=$$('#statsRow [data-count]')[2]; if(st){ st.dataset.count=DOCS.length; st.textContent=DOCS.length; }
   }
   $('#docChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;
