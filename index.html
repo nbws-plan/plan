@@ -1131,6 +1131,11 @@ footer li a:hover{color:var(--gold-400);padding-left:6px}
 .pcode{display:inline-block;font-family:"Prompt";font-size:12.5px;font-weight:700;color:var(--navy-700);background:var(--navy-100);padding:1px 8px;border-radius:6px;margin-right:4px;vertical-align:2px}
 .pmore{justify-self:center;margin-top:6px}
 #projList{max-height:none}
+/* v17 จักรวาลรอบ STAR model */
+.cosmos{position:absolute;left:50%;top:50%;width:200%;height:200%;translate:-50% -50%;pointer-events:none;z-index:0;
+  -webkit-mask:radial-gradient(closest-side,#000 62%,transparent 100%);mask:radial-gradient(closest-side,#000 62%,transparent 100%)}
+.emblem .emb-core,.emblem .ring,.emblem .orbit{z-index:1}
+@media (max-width:680px){.cosmos{width:260%;height:260%}}
 /* ---------- Responsive ---------- */
 @media (max-width:1180px){
   .nav a{padding:8px 8px;font-size:14px}
@@ -1295,6 +1300,7 @@ footer li a:hover{color:var(--gold-400);padding-left:6px}
     </div>
   </div>
   <div class="emblem" id="emblem" aria-hidden="true">
+    <canvas class="cosmos" id="cosmos"></canvas>
     <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
     <div class="emb-core star"><img id="starImg" alt="STAR Model"></div>
     <span class="orbit o1"></span><span class="orbit o2"></span>
@@ -2403,6 +2409,77 @@ const STATS = [
 
   // ---------- star model ----------
   $('#starImg').src=STAR_SRC;
+
+  // ---------- จักรวาล: กาแล็กซีหมุน + ดาวกระพริบ + ดาวตก/อุกกาบาต ----------
+  (function(){
+    const cv=$('#cosmos'); if(!cv) return;
+    const ctx=cv.getContext('2d'); let W=0,H=0,D=1,R=0,run=true;
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    let stars=[],dust=[],meteors=[],nextM=0;
+    const COL=['#ffffff','#fff3c4','#cfe0ff','#ffd56b','#f7b2ff'];
+    function build(){
+      const r=cv.getBoundingClientRect(); D=Math.min(2,window.devicePixelRatio||1);
+      W=r.width; H=r.height; R=Math.min(W,H)/2; cv.width=W*D; cv.height=H*D; ctx.setTransform(D,0,0,D,0,0);
+      stars=[]; dust=[];
+      // แขนกาแล็กซีแบบก้นหอย 3 แขน
+      for(let i=0;i<900;i++){ const arm=i%3, t=Math.pow(Math.random(),.7);
+        const rad=R*(.32+t*.68), ang=arm*2.094+t*4.2+rnd(-.35,.35)*(1-t*.4);
+        dust.push({rad,ang,s:rnd(.6,1.8),a:rnd(.35,.95),c:COL[(Math.random()*COL.length)|0]}); }
+      // ดาวกระพริบกระจายทั่ว
+      for(let i=0;i<150;i++){ const a=rnd(0,6.283), d=R*Math.sqrt(rnd(.08,1));
+        stars.push({x:W/2+Math.cos(a)*d,y:H/2+Math.sin(a)*d,s:rnd(.6,2.2),p:rnd(0,6.283),v:rnd(.8,2.6),big:Math.random()<.12,c:COL[(Math.random()*COL.length)|0]}); }
+    }
+    function spawn(now){
+      const big=Math.random()<.22, ang=rnd(.55,.95)+(Math.random()<.3?Math.PI/2:0); // ทิศเฉียงลง
+      const sx=rnd(W*.1,W*.95), sy=rnd(-H*.05,H*.45);
+      meteors.push({x:sx,y:sy,vx:-Math.cos(ang)*(big?7:rnd(9,14)),vy:Math.sin(ang)*(big?7:rnd(9,14)),
+        len:big?rnd(140,220):rnd(70,150),life:0,max:big?rnd(70,95):rnd(40,65),w:big?3.2:rnd(1,2),big,
+        hue:big?(Math.random()<.5?'255,190,90':'255,140,80'):'255,255,255'});
+      nextM=now+rnd(500,1500);
+    }
+    function frame(now){
+      if(!run){ requestAnimationFrame(frame); return; }
+      ctx.clearRect(0,0,W,H);
+      const cx=W/2, cy=H/2, t=now/1000;
+      ctx.globalCompositeOperation='source-over';
+      const sky=ctx.createRadialGradient(cx,cy,0,cx,cy,R); sky.addColorStop(0,'rgba(8,14,48,.92)'); sky.addColorStop(.7,'rgba(6,12,40,.78)'); sky.addColorStop(1,'rgba(6,12,40,0)');
+      ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+      ctx.globalCompositeOperation='lighter';
+      // เนบิวลา
+      const neb=[[ .0,'140,80,255',.42],[2.2,'40,130,255',.4],[4.1,'255,150,60',.26]];
+      neb.forEach(([o,c,a],i)=>{ const ang=t*.05+o, x=cx+Math.cos(ang)*R*.32, y=cy+Math.sin(ang)*R*.22;
+        const g=ctx.createRadialGradient(x,y,0,x,y,R*.75); g.addColorStop(0,`rgba(${c},${a*(.8+.2*Math.sin(t*.7+i))})`); g.addColorStop(1,`rgba(${c},0)`);
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H); });
+      // แกนกลางเรืองแสง
+      const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*.45); core.addColorStop(0,'rgba(255,230,160,.45)'); core.addColorStop(1,'rgba(255,230,160,0)');
+      ctx.fillStyle=core; ctx.fillRect(0,0,W,H);
+      // ฝุ่นดาวในแขนกาแล็กซี (หมุนช้า ๆ วงในเร็วกว่า)
+      dust.forEach(d=>{ const a=d.ang+t*(.12*(R/d.rad)*.35); const x=cx+Math.cos(a)*d.rad, y=cy+Math.sin(a)*d.rad*.62;
+        ctx.globalAlpha=d.a; ctx.fillStyle=d.c; ctx.fillRect(x,y,d.s,d.s); });
+      // ดาวกระพริบ
+      stars.forEach(st=>{ const k=.35+.65*Math.abs(Math.sin(t*st.v+st.p)); ctx.globalAlpha=k; ctx.fillStyle=st.c;
+        ctx.beginPath(); ctx.arc(st.x,st.y,st.s*(.7+.3*k),0,6.283); ctx.fill();
+        if(st.big){ ctx.globalAlpha=k*.7; ctx.strokeStyle=st.c; ctx.lineWidth=.8; const L=st.s*5*k;
+          ctx.beginPath(); ctx.moveTo(st.x-L,st.y); ctx.lineTo(st.x+L,st.y); ctx.moveTo(st.x,st.y-L); ctx.lineTo(st.x,st.y+L); ctx.stroke(); } });
+      ctx.globalAlpha=1;
+      // ดาวตก / อุกกาบาต
+      if(now>nextM) spawn(now);
+      meteors=meteors.filter(m=>{ m.life++; m.x+=m.vx; m.y+=m.vy; const f=Math.min(1,m.life/8)*(1-m.life/m.max); if(f<=0) return false;
+        const sp=Math.hypot(m.vx,m.vy), tx=m.x-m.vx/sp*m.len, ty=m.y-m.vy/sp*m.len;
+        const g=ctx.createLinearGradient(m.x,m.y,tx,ty); g.addColorStop(0,`rgba(${m.hue},${f})`); g.addColorStop(1,`rgba(${m.hue},0)`);
+        ctx.strokeStyle=g; ctx.lineWidth=m.w; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(m.x,m.y); ctx.lineTo(tx,ty); ctx.stroke();
+        const hg=ctx.createRadialGradient(m.x,m.y,0,m.x,m.y,m.big?14:6); hg.addColorStop(0,`rgba(255,255,255,${f})`); hg.addColorStop(1,`rgba(${m.hue},0)`);
+        ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(m.x,m.y,m.big?14:6,0,6.283); ctx.fill();
+        if(m.big && m.life%2===0){ // ประกายไฟอุกกาบาต
+          for(let i=0;i<2;i++){ ctx.fillStyle=`rgba(255,${(180+Math.random()*60)|0},90,${f*.8})`; ctx.fillRect(tx+(m.x-tx)*Math.random()+rnd(-4,4),ty+(m.y-ty)*Math.random()+rnd(-4,4),1.6,1.6); } }
+        return true; });
+      ctx.globalCompositeOperation='source-over';
+      requestAnimationFrame(frame);
+    }
+    build(); window.addEventListener('resize',()=>{ clearTimeout(cv._t); cv._t=setTimeout(build,200); });
+    new IntersectionObserver(es=>{ run=es[0].isIntersecting; },{threshold:0}).observe(cv);
+    requestAnimationFrame(frame);
+  })();
 
   // ---------- logo ----------
   $$('img[data-logo]').forEach(i=>i.src=LOGO_SRC);
