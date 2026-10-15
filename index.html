@@ -1202,6 +1202,15 @@ footer li a:hover{color:var(--gold-400);padding-left:6px}
   .reveal,.hero .fx,.hero-script span{opacity:1;transform:none}
   .hero-swoosh path{stroke-dashoffset:0}
 }
+/* ปุ่มลัดบนแถบหัว: แสดงเมื่อเมนูหลักย่อเป็นปุ่มเมนู (จอ 1280px ลงมา) */
+.hd-quick{display:none;align-items:center;gap:8px;margin-left:auto}
+.hq{position:relative;display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-family:"Prompt",system-ui,sans-serif;font-size:14px;font-weight:500;color:var(--navy-900);text-decoration:none;white-space:nowrap;transition:border-color .3s,background .3s,transform .45s var(--spring)}
+.hq svg.i{width:18px;height:18px;color:var(--gold-600)}
+.hq:hover{border-color:var(--gold-500);background:var(--gold-100);transform:translateY(-2px)}
+.hq.qa{background:var(--gold-100);border-color:transparent;font-weight:600}
+.hq em{position:absolute;top:-8px;right:-6px;font-style:normal;font-size:10px;line-height:1.5;font-weight:600;background:#d6337f;color:#fff;padding:0 6px;border-radius:999px;animation:qaBob 1.6s ease-in-out infinite}
+@media (max-width:1280px){.hd-quick{display:flex}}
+@media (max-width:640px){.hq span{display:none}.hq{width:42px;padding:0;justify-content:center}}
 /* ===================== ทางเข้าเว็บไซต์งานประกันคุณภาพ (SAR) ===================== */
 .nav a.qa-nav{display:inline-flex;align-items:center;gap:6px;margin-left:4px;padding:7px 13px;border-radius:999px;background:var(--gold-100);color:var(--navy-900);font-weight:600;transition:background .3s,transform .45s var(--spring)}
 .nav a.qa-nav::after{display:none}
@@ -1390,6 +1399,10 @@ footer li a:hover{color:var(--gold-400);padding-left:6px}
       <a href="https://sites.google.com/a/nbws.ac.th/nbws/%E0%B8%AB%E0%B8%99%E0%B8%B2%E0%B8%AB%E0%B8%A5%E0%B8%81?authuser=0" target="_blank" rel="noopener" class="school-link" title="กลับสู่เว็บไซต์โรงเรียน"><svg class="i"><use href="#i-school"/></svg><span>เว็บโรงเรียน</span></a>
       <a href="#systems" class="btn btn-gold" data-launch>เข้าสู่ระบบงาน <svg class="i"><use href="#i-arrow"/></svg></a>
     </nav>
+    <div class="hd-quick">
+      <a href="#qa" class="hq qa"><svg class="i"><use href="#i-qa-star"/></svg><span>ประกันคุณภาพ</span><em>ใหม่</em></a>
+      <a href="https://sites.google.com/a/nbws.ac.th/nbws/%E0%B8%AB%E0%B8%99%E0%B8%B2%E0%B8%AB%E0%B8%A5%E0%B8%81?authuser=0" target="_blank" rel="noopener" class="hq" title="กลับสู่เว็บไซต์โรงเรียน"><svg class="i"><use href="#i-school"/></svg><span>เว็บโรงเรียน</span></a>
+    </div>
     <button class="menu-btn" id="menuBtn" aria-label="เมนู"><svg class="i"><use href="#i-grid"/></svg></button>
   </div>
 </header>
